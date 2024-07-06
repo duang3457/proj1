@@ -11,6 +11,7 @@
 -- Q1:
 DROP VIEW IF EXISTS Q1 CASCADE;
 CREATE VIEW Q1(code) as
+SELECT DISTINCT subjects.code
 FROM subjects
 JOIN orgunits ON subjects.offeredby = orgunits.id
 WHERE subjects.longname LIKE '%Database%'
@@ -23,7 +24,7 @@ CREATE VIEW Q2(id) as
 SELECT DISTINCT courses.id
 FROM courses
 JOIN classes ON courses.id = classes.course
-JOIN class_types ON classes.ctype = class_types.unswid
+JOIN class_types ON classes.ctype = class_types.id
 JOIN rooms ON classes.room = rooms.id
 WHERE class_types.name = 'Laboratory'
 AND rooms.longname = 'MB-G4'
@@ -47,7 +48,7 @@ SELECT DISTINCT subjects.code
 FROM subjects
 JOIN courses ON subjects.id = courses.subject
 JOIN classes ON courses.id = classes.course
-JOIN rooms ON classes.room_id = rooms.id
+JOIN rooms ON classes.room = rooms.id
 JOIN room_facilities ON rooms.id = room_facilities.room
 JOIN facilities ON room_facilities.facility = facilities.id
 WHERE subjects.code LIKE 'COMM%'
@@ -60,7 +61,7 @@ CREATE VIEW Q5(unswid) as
 SELECT DISTINCT people.unswid
 FROM people
 JOIN course_enrolments ON people.id = course_enrolments.student
-JOIN subjects ON course_enrolments.subject = subjects.id
+JOIN subjects ON course_enrolments.course = subjects.id
 WHERE course_enrolments.grade = 'HD'
 AND subjects.code LIKE 'COMP9%'
 GROUP BY people.unswid
@@ -104,7 +105,7 @@ AND course_enrolments.mark = (SELECT MAX(mark)
 -- Q8:
 DROP VIEW IF EXISTS Q8 CASCADE;
 CREATE VIEW Q8(course_id, staffs_names) as 
-SELECT courses.id AS course_id, STRING_AGG(people.givenname, ', ' ORDER BY people.givenname) AS staffs_names
+SELECT courses.id AS course_id, STRING_AGG(people.name, ', ' ORDER BY people.name) AS staffs_names
 FROM courses
 JOIN course_enrolments ON courses.id = course_enrolments.course
 JOIN course_staff ON courses.id = course_staff.course
