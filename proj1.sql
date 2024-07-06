@@ -151,17 +151,17 @@ DECLARE
     prereqs TEXT;
 BEGIN
     WITH RECURSIVE PrerequisiteTree AS (
-        SELECT subjects.code, unnest(regexp_matches(subjects._prereq, '[A-Z]{4}\d{4}', 'g')) AS prereq, subjects._prereq
+        SELECT subjects.code, unnest(regexp_matches(subjects._prereq, '[A-Z]{4}\d{4}', 'gi')) AS prereq, subjects._prereq
         FROM subjects
         CROSS JOIN LATERAL (
-            SELECT unnest(regexp_matches(subjects._prereq, '[A-Z]{4}\d{4}', 'g')) AS prereq
+            SELECT unnest(regexp_matches(subjects._prereq, '[A-Z]{4}\d{4}', 'gi')) AS prereq
         ) AS prereq_matches
         JOIN subjects AS sub ON sub.code = prereq_matches.prereq
         WHERE subjects.code = subject_code
 
         UNION
 
-        SELECT sub.code, unnest(regexp_matches(sub._prereq, '[A-Z]{4}\d{4}', 'g')) AS prereq, sub._prereq
+        SELECT sub.code, unnest(regexp_matches(sub._prereq, '[A-Z]{4}\d{4}', 'gi')) AS prereq, sub._prereq
         FROM subjects AS sub
         JOIN PrerequisiteTree ON sub.code = PrerequisiteTree.prereq
     )
