@@ -104,7 +104,6 @@ AND course_enrolments.mark = (
     WHERE ce2.course = course_enrolments.course
 );
 
-
 -- Q8:
 DROP VIEW IF EXISTS Q8 CASCADE;
 CREATE VIEW Q8(course_id, staffs_names) as 
@@ -120,17 +119,7 @@ HAVING COUNT(DISTINCT course_enrolments.student) >= 650
 AND COUNT(DISTINCT people.id) = 2
 ;
 
-SELECT * 
-FROM courses
-JOIN course_enrolments ON courses.id = course_enrolments.course
-JOIN course_staff ON courses.id = course_staff.course
-JOIN staff ON course_staff.staff = staff.id
-JOIN people ON staff.id = people.id
-WHERE people.title = 'AProf'
-HAVING COUNT(DISTINCT course_enrolments.student) >= 650
-AND COUNT(DISTINCT people.id) = 2
-
--- Q9
+-- Q9:
 DROP FUNCTION IF EXISTS Q9 CASCADE;
 CREATE OR REPLACE FUNCTION Q9(subject_code TEXT) RETURNS TEXT
 AS $$
@@ -154,32 +143,38 @@ END;
 $$ LANGUAGE plpgsql
 ;
 
-
-
-
--- Q10
+-- Q10:
 DROP FUNCTION IF EXISTS Q10 CASCADE;
-CREATE or REPLACE FUNCTION Q10(subject_code text) returns text
-as $$
+CREATE OR REPLACE FUNCTION Q10(subject_code TEXT) RETURNS TEXT
+AS $$
 DECLARE
     prereqs TEXT;
 BEGIN
-    WITH RECURSIVE PrereqTree AS (
-        SELECT code, _prereq
+    WITH RECURSIVE PrerequisiteTree AS (
+        SELECT subjects.code, unnest(regexp_matches(subjects._prereq, '[A-Z]{4}\d{4}', 'g')) AS prereq, subjects._prereq
         FROM subjects
-        WHERE code = subject_code
-        UNION
-        SELECT s.code, s._prereq
-        FROM subjects s
-        INNER JOIN PrereqTree pt ON s.code = pt._prereq
-    )
-    SELECT STRING_AGG(DISTINCT _prereq, ', ' ORDER BY _prereq) INTO prereqs
-    FROM PrereqTree;
+        CROSS JOIN LATERAL (
+            SELECT unnest(regexp_matches(subjects._prereq, '[A-Z]{4}\d{4}', 'g')) AS prereq
+        ) AS prereq_matches
+        JOIN subjects AS sub ON sub.code = prereq_matches.prereq
+        WHERE subjects.code = subject_code
 
-    IF prereqs IS NULL THEN
+        UNION
+
+        SELECT sub.code, unnest(regexp_matches(sub._prereq, '[A-Z]{4}\d{4}', 'g')) AS prereq, sub._prereq
+        FROM subjects AS sub
+        JOIN PrerequisiteTree ON sub.code = PrerequisiteTree.prereq
+    )
+    SELECT STRING_AGG(DISTINCT prereq, ', ' ORDER BY prereq) INTO prereqs
+    FROM PrerequisiteTree;
+
+    IF prereqs IS NULL OR prereqs = '' THEN
         RETURN 'There is no prerequisite for subject ' || subject_code || '.';
     ELSE
         RETURN 'The prerequisites for subject ' || subject_code || ' are ' || prereqs || '.';
     END IF;
 END;
-$$ language plpgsql;
+$$ LANGUAGE plpgsql;
+
+
+
