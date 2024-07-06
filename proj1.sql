@@ -33,10 +33,11 @@ AND rooms.longname = 'MB-G4'
 -- Q3:
 DROP VIEW IF EXISTS Q3 CASCADE;
 CREATE VIEW Q3(name) as
-SELECT DISTINCT people.name
+SELECT DISTINCT people.name AS name
 FROM people
 JOIN course_enrolments ON people.id = course_enrolments.student
-JOIN subjects ON course_enrolments.course = subjects.id
+JOIN courses ON course_enrolments.course = courses.id
+JOIN subjects ON courses.subject = subjects.id
 WHERE course_enrolments.mark >= 95
 AND subjects.code = 'COMP3311'
 ;
@@ -57,15 +58,15 @@ AND facilities.description = 'Student wheelchair access'
 
 -- Q5:
 DROP VIEW IF EXISTS Q5 CASCADE;
-CREATE VIEW Q5(unswid) as
+CREATE VIEW Q5(unswid) AS
 SELECT DISTINCT people.unswid
 FROM people
 JOIN course_enrolments ON people.id = course_enrolments.student
-JOIN subjects ON course_enrolments.course = subjects.id
-WHERE course_enrolments.grade = 'HD'
-AND subjects.code LIKE 'COMP9%'
+JOIN courses ON course_enrolments.course = courses.id
+JOIN subjects ON courses.subject = subjects.id
+WHERE subjects.code LIKE 'COMP9%'
 GROUP BY people.unswid
-HAVING COUNT(DISTINCT subjects.code) = COUNT(DISTINCT CASE WHEN course_enrolments.grade = 'HD' THEN subjects.code END)
+HAVING COUNT(DISTINCT subjects.id) = COUNT(DISTINCT CASE WHEN course_enrolments.grade = 'HD' THEN subjects.id END)
 ;
 
 -- Q6:
@@ -86,55 +87,74 @@ GROUP BY subjects.code
 ORDER BY avg_mark DESC
 ;
 
--- Q7:
+-- Q7
 DROP VIEW IF EXISTS Q7 CASCADE;
 CREATE VIEW Q7(student, course) as
-SELECT course_enrolments.student AS student, courses.id AS course
+SELECT course_enrolments.student, course_enrolments.course
 FROM course_enrolments
 JOIN courses ON course_enrolments.course = courses.id
 JOIN subjects ON courses.subject = subjects.id
 JOIN semesters ON courses.semester = semesters.id
 WHERE subjects.code LIKE 'COMP93%'
-AND semesters.year = '2008'
-AND semesters.term = '1'
-AND course_enrolments.mark = (SELECT MAX(mark) 
-                              FROM course_enrolments 
-                              WHERE course_enrolments.course = courses.id)
-;
+AND semesters.year = 2008
+AND semesters.term = 'S1'
+AND course_enrolments.mark = (
+    SELECT MAX(ce2.mark)
+    FROM course_enrolments ce2
+    WHERE ce2.course = course_enrolments.course
+);
+
 
 -- Q8:
 DROP VIEW IF EXISTS Q8 CASCADE;
 CREATE VIEW Q8(course_id, staffs_names) as 
-SELECT courses.id AS course_id, STRING_AGG(people.name, ', ' ORDER BY people.name) AS staffs_names
+SELECT courses.id AS course_id, STRING_AGG(DISTINCT people.given, ', ' ORDER BY people.given) AS staffs_names
 FROM courses
 JOIN course_enrolments ON courses.id = course_enrolments.course
 JOIN course_staff ON courses.id = course_staff.course
-JOIN people ON course_staff.staff = people.id
+JOIN staff ON course_staff.staff = staff.id
+JOIN people ON staff.id = people.id
 WHERE people.title = 'AProf'
 GROUP BY courses.id
 HAVING COUNT(DISTINCT course_enrolments.student) >= 650
 AND COUNT(DISTINCT people.id) = 2
 ;
 
+SELECT * 
+FROM courses
+JOIN course_enrolments ON courses.id = course_enrolments.course
+JOIN course_staff ON courses.id = course_staff.course
+JOIN staff ON course_staff.staff = staff.id
+JOIN people ON staff.id = people.id
+WHERE people.title = 'AProf'
+HAVING COUNT(DISTINCT course_enrolments.student) >= 650
+AND COUNT(DISTINCT people.id) = 2
 
 -- Q9
 DROP FUNCTION IF EXISTS Q9 CASCADE;
-CREATE or REPLACE FUNCTION Q9(subject_code text) returns text
-as $$
+CREATE OR REPLACE FUNCTION Q9(subject_code TEXT) RETURNS TEXT
+AS $$
 DECLARE
     prereqs TEXT;
 BEGIN
-    SELECT STRING_AGG(DISTINCT _prereq, ', ' ORDER BY _prereq) INTO prereqs
-    FROM subjects
-    WHERE code = subject_code;
-    
-    IF prereqs IS NULL THEN
+    SELECT STRING_AGG(DISTINCT extracted_prereqs.prereq, ', ' ORDER BY extracted_prereqs.prereq) INTO prereqs
+    FROM (
+        SELECT unnest(regexp_matches(_prereq, '[A-Z]{4}\d{4}', 'gi')) AS prereq
+        FROM subjects
+        WHERE code = subject_code
+    ) AS extracted_prereqs
+    JOIN subjects AS sub ON extracted_prereqs.prereq = sub.code;
+
+    IF prereqs IS NULL OR prereqs = '' THEN
         RETURN 'There is no prerequisite for subject ' || subject_code || '.';
     ELSE
         RETURN 'The prerequisites for subject ' || subject_code || ' are ' || prereqs || '.';
     END IF;
 END;
-$$ language plpgsql;
+$$ LANGUAGE plpgsql
+;
+
+
 
 
 -- Q10
