@@ -2,8 +2,8 @@
 -- COMP9311 24T2 Project 1 
 -- SQL and PL/pgSQL 
 -- Solution Template
--- Name:Yang Zhang
--- zID:z5503515
+-- Name:不要抄
+-- zID:z0000000
 ------------------------------------------------------
 -- Note: Before submission, please check your solution on the nw-syd-vxdb server using the check file.
 
